@@ -1,0 +1,9 @@
+Hello {{ user.first_name|default:user.username }},
+
+Thanks for joining VivahVows! Please verify your account by clicking the link below:
+
+{{ request_scheme|default:"https" }}://{{ request_domain|default:"vivahvows.com" }}/verify-email/{{ token }}/
+
+If you did not sign up for VivahVows, please ignore this email.
+
+Team VivahVows
