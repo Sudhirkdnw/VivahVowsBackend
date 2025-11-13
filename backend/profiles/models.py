@@ -1,10 +1,9 @@
 from __future__ import annotations
-
 from datetime import date
-
 from django.conf import settings
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
+from django.utils.html import format_html  # for admin image preview
 
 User = settings.AUTH_USER_MODEL
 
@@ -36,7 +35,8 @@ class Profile(models.Model):
     profession = models.CharField(max_length=200, blank=True)
     interests = models.ManyToManyField(Interest, related_name="profiles", blank=True)
     bio = models.TextField(blank=True)
-    photos = models.JSONField(default=list, blank=True)
+
+    # photos = models.JSONField(default=list, blank=True)  # ❌ old JSON-based photos removed
     is_email_verified = models.BooleanField(default=False)
 
     preferred_gender = models.CharField(max_length=20, blank=True)
@@ -71,3 +71,25 @@ class Profile(models.Model):
         return today.year - self.dob.year - (
             (today.month, today.day) < (self.dob.month, self.dob.day)
         )
+
+
+# ✅ new model for multiple photo uploads
+class ProfilePhoto(models.Model):
+    profile = models.ForeignKey(
+        Profile, on_delete=models.CASCADE, related_name="photos"
+    )
+    image = models.ImageField(upload_to="profile_photos/")
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.profile.name or self.profile.user.username} - Photo"
+
+    def image_tag(self):
+        """Show thumbnail preview in Django admin"""
+        if self.image:
+            return format_html(
+                '<img src="{}" width="80" height="80" style="border-radius:6px; object-fit:cover;"/>',
+                self.image.url,
+            )
+        return ""
+    image_tag.short_description = "Preview"

@@ -82,4 +82,4 @@ class ProfileViewSet(viewsets.ModelViewSet):
             return Response(serializer.data)
         serializer = self.get_serializer(profile)
         return Response(serializer.data)
-*** End
+

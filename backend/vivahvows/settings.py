@@ -9,19 +9,19 @@ import dj_database_url
 import environ
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
-BASE_DIR = Path(__file__).resolve().parent.parent.parent
+BASE_DIR = Path(__file__).resolve().parent.parent
 APPS_DIR = Path(__file__).resolve().parent
 
 # Environment configuration
 env = environ.Env(
     DEBUG=(bool, False),
-    SECRET_KEY=(str, "changeme"),
+    SECRET_KEY=(str, "2n=u%lp5beui7ti%r(!u556j$@4_jvn_-*)9(o-mn8-t-=m251"),
     ALLOWED_HOSTS=(list, ["*"]),
 )
-
 env.read_env(BASE_DIR / ".env")
 
 SECRET_KEY = env("SECRET_KEY")
+
 DEBUG = env("DEBUG")
 ALLOWED_HOSTS = env("ALLOWED_HOSTS")
 
@@ -49,6 +49,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "corsheaders.middleware.CorsMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -56,6 +57,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+
 ]
 
 ROOT_URLCONF = "vivahvows.urls"
@@ -67,7 +69,7 @@ template_dirs = [FRONTEND_DIST_DIR] if FRONTEND_DIST_DIR.exists() else []
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": template_dirs,
+        "DIRS": [BASE_DIR / "templates"],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -85,14 +87,32 @@ ASGI_APPLICATION = "vivahvows.asgi.application"
 
 # Database configuration
 DATABASES = {
-    "default": dj_database_url.parse(
-        env(
-            "DATABASE_URL",
-            default="sqlite:///" + str(BASE_DIR / "db.sqlite3"),
+    "default": {
+        "ENGINE": env(
+            "POSTGRES_ENGINE",
+            default="django.db.backends.postgresql",
         ),
-        conn_max_age=600,
-    )
+        "NAME": env("POSTGRES_DB", default="vivahvows"),
+        "USER": env("POSTGRES_USER", default="postgres"),
+        "PASSWORD": env("POSTGRES_PASSWORD", default="admin"),
+        "HOST": env("POSTGRES_HOST", default="localhost"),
+        "PORT": env("POSTGRES_PORT", default="5432"),
+        "CONN_MAX_AGE": env.int("POSTGRES_CONN_MAX_AGE", default=300),
+        "OPTIONS": {
+            "sslmode": env("POSTGRES_SSL_MODE", default="prefer"),
+        },
+    }
 }
+
+# DATABASES = {
+#     "default": dj_database_url.parse(
+#         env(
+#             "DATABASE_URL",
+#             default="sqlite:///" + str(BASE_DIR / "db.sqlite3"),
+#         ),
+#         conn_max_age=600,
+#     )
+# }
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
@@ -110,11 +130,20 @@ USE_TZ = True
 
 # Static files (CSS, JavaScript, Images)
 STATIC_URL = "static/"
-STATIC_ROOT = BASE_DIR / "staticfiles"
-STATICFILES_DIRS = [FRONTEND_DIST_DIR] if FRONTEND_DIST_DIR.exists() else []
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+STATICFILES_DIRS = [
+    BASE_DIR / 'static',  # You can create this folder manually
+]
 
-MEDIA_URL = "media/"
-MEDIA_ROOT = BASE_DIR / "media"
+FRONTEND_DIST_DIR = BASE_DIR / 'frontend' / 'dist'
+if FRONTEND_DIST_DIR.exists():
+    STATICFILES_DIRS.append(FRONTEND_DIST_DIR)
+
+
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
+
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
@@ -144,10 +173,12 @@ CLOUDINARY_STORAGE = {
     "API_KEY": env("CLOUDINARY_API_KEY", default=""),
     "API_SECRET": env("CLOUDINARY_API_SECRET", default=""),
 }
-if CLOUDINARY_STORAGE["CLOUD_NAME"]:
-    DEFAULT_FILE_STORAGE = "cloudinary_storage.storage.MediaCloudinaryStorage"
-else:  # pragma: no cover - local development fallback
-    DEFAULT_FILE_STORAGE = "django.core.files.storage.FileSystemStorage"
+DEFAULT_FILE_STORAGE = "django.core.files.storage.FileSystemStorage"
+
+# if CLOUDINARY_STORAGE["CLOUD_NAME"]:
+#     DEFAULT_FILE_STORAGE = "cloudinary_storage.storage.MediaCloudinaryStorage"
+# else:  # pragma: no cover - local development fallback
+#     DEFAULT_FILE_STORAGE = "django.core.files.storage.FileSystemStorage"
 
 # Email configuration - console backend for development
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
