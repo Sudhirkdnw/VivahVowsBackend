@@ -30,7 +30,9 @@ class ProfileViewSet(viewsets.ModelViewSet):
     parser_classes = [MultiPartParser, FormParser, JSONParser]
 
     def get_queryset(self):
-        queryset = Profile.objects.select_related("user").prefetch_related("interests")
+        queryset = (
+            Profile.objects.select_related("user").prefetch_related("interests", "photos")
+        )
         if self.action == "list":
             queryset = queryset.exclude(user=self.request.user)
             params = self.request.query_params
