@@ -15,12 +15,21 @@ class InterestSerializer(serializers.ModelSerializer):
 
 
 class ProfilePhotoSerializer(serializers.ModelSerializer):
-    image = serializers.ImageField(read_only=True)
+    image = serializers.SerializerMethodField()
 
     class Meta:
         model = ProfilePhoto
         fields = ["id", "image", "uploaded_at"]
         read_only_fields = ["id", "image", "uploaded_at"]
+
+    def get_image(self, obj: ProfilePhoto) -> str:
+        if not obj.image:
+            return ""
+        request = self.context.get("request") if hasattr(self, "context") else None
+        url = obj.image.url
+        if request is not None:
+            return request.build_absolute_uri(url)
+        return url
 
 
 class ProfileSerializer(serializers.ModelSerializer):
@@ -87,4 +96,5 @@ class ProfileSerializer(serializers.ModelSerializer):
             instance.photos.filter(id__in=remove_photo_ids).delete()
         for image in new_photos:
             ProfilePhoto.objects.create(profile=instance, image=image)
+        instance.refresh_from_db()
         return instance

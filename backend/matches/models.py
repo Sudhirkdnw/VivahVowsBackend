@@ -35,7 +35,10 @@ class MatchAction(models.Model):
 
 class MutualMatchQuerySet(models.QuerySet):
     def involving(self, user: User):
-        return self.filter(models.Q(user_one=user) | models.Q(user_two=user))
+        return (
+            self.filter(models.Q(user_one=user) | models.Q(user_two=user))
+            .order_by("-created_at", "id")
+        )
 
 
 class MutualMatch(models.Model):
@@ -50,6 +53,7 @@ class MutualMatch(models.Model):
     objects = MutualMatchQuerySet.as_manager()
 
     class Meta:
+        ordering = ("-created_at", "id")
         constraints = [
             models.UniqueConstraint(
                 fields=["user_one", "user_two"], name="unique_user_pair"
