@@ -23,27 +23,6 @@ const ProfilePage = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const mediaBaseUrl = (import.meta.env.VITE_MEDIA_BASE_URL ?? import.meta.env.VITE_API_ORIGIN ?? '').replace(/\/$/, '');
-
-  const resolvePhotoSrc = (photo) => {
-    if (!photo) {
-      return '';
-    }
-    const candidates = [photo.image, photo.image_path];
-    for (const candidate of candidates) {
-      if (!candidate) {
-        continue;
-      }
-      if (/^https?:\/\//i.test(candidate)) {
-        return candidate;
-      }
-      if (candidate.startsWith('/') && mediaBaseUrl) {
-        return `${mediaBaseUrl}${candidate}`;
-      }
-    }
-    return candidates.find(Boolean) ?? '';
-  };
-
   const normalizeDate = (value) => {
     if (!value) {
       return '';
@@ -252,7 +231,7 @@ const ProfilePage = () => {
           <div style={{ flex: '0 0 160px', display: 'grid', gap: '0.75rem' }}>
             {profile?.photos?.length ? (
               <img
-                src={resolvePhotoSrc(profile.photos[0])}
+                src={profile.photos[0].image}
                 alt="Primary profile"
                 style={{ width: '160px', height: '160px', objectFit: 'cover', borderRadius: '12px' }}
               />
@@ -278,7 +257,7 @@ const ProfilePage = () => {
                 {otherPhotos.map((photo) => (
                   <img
                     key={photo.id}
-                    src={resolvePhotoSrc(photo)}
+                    src={photo.image}
                     alt="Profile"
                     style={{ width: '72px', height: '72px', objectFit: 'cover', borderRadius: '8px' }}
                   />
@@ -454,7 +433,7 @@ const ProfilePage = () => {
                         }}
                       >
                         <img
-                          src={resolvePhotoSrc(photo)}
+                          src={photo.image}
                           alt="Profile"
                           style={{
                             width: '100px',

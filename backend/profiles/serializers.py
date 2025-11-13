@@ -16,21 +16,20 @@ class InterestSerializer(serializers.ModelSerializer):
 
 class ProfilePhotoSerializer(serializers.ModelSerializer):
     image = serializers.SerializerMethodField()
-    image_path = serializers.SerializerMethodField()
 
     class Meta:
         model = ProfilePhoto
-        fields = ["id", "image", "image_path", "uploaded_at"]
-        read_only_fields = ["id", "image", "image_path", "uploaded_at"]
+        fields = ["id", "image", "uploaded_at"]
+        read_only_fields = ["id", "image", "uploaded_at"]
 
     def get_image(self, obj: ProfilePhoto) -> str:
-        request = self.context.get("request") if hasattr(self, "context") else None
-        return obj.get_image_url(request=request)
-
-    def get_image_path(self, obj: ProfilePhoto) -> str:
         if not obj.image:
             return ""
-        return obj.image.url
+        request = self.context.get("request") if hasattr(self, "context") else None
+        url = obj.image.url
+        if request is not None:
+            return request.build_absolute_uri(url)
+        return url
 
 
 class ProfileSerializer(serializers.ModelSerializer):
