@@ -63,6 +63,10 @@ const profileSlice = createSlice({
       })
       .addCase(saveProfile.fulfilled, (state, action) => {
         state.profile = action.payload;
+        state.error = null;
+      })
+      .addCase(saveProfile.rejected, (state, action) => {
+        state.error = action.payload ?? action.error;
       });
   }
 });
