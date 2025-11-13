@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import date
 
-from rest_framework import permissions, viewsets
+from rest_framework import permissions, status, viewsets
 from rest_framework.permissions import SAFE_METHODS
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -26,7 +26,7 @@ class ProfileViewSet(viewsets.ModelViewSet):
     serializer_class = ProfileSerializer
     permission_classes = [permissions.IsAuthenticated]
     queryset = Profile.objects.select_related("user").prefetch_related("interests")
-    http_method_names = ["get", "put", "patch", "head", "options"]
+    http_method_names = ["get", "put", "patch", "delete", "head", "options"]
     parser_classes = [MultiPartParser, FormParser, JSONParser]
 
     def get_queryset(self):
@@ -72,7 +72,7 @@ class ProfileViewSet(viewsets.ModelViewSet):
             self.permission_denied(self.request, message="Cannot edit another user's profile")
         return obj
 
-    @action(detail=False, methods=["get", "put", "patch"], url_path="me")
+    @action(detail=False, methods=["get", "put", "patch", "delete"], url_path="me")
     def me(self, request):
         profile = request.user.profile
         if request.method.lower() in {"put", "patch"}:
@@ -82,6 +82,10 @@ class ProfileViewSet(viewsets.ModelViewSet):
             serializer.is_valid(raise_exception=True)
             serializer.save()
             return Response(serializer.data)
+        if request.method.lower() == "delete":
+            user = request.user
+            user.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
         serializer = self.get_serializer(profile)
         return Response(serializer.data)
 

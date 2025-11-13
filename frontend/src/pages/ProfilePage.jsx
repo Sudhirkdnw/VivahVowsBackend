@@ -1,15 +1,27 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
+import { useNavigate } from 'react-router-dom';
 
-import { loadProfile, saveProfile, selectInterests, selectProfile } from '../redux/profileSlice.js';
+import {
+  loadProfile,
+  removeAccount,
+  saveProfile,
+  selectInterests,
+  selectProfile
+} from '../redux/profileSlice.js';
+import { selectCurrentUser } from '../redux/authSlice.js';
 
 const ProfilePage = () => {
   const dispatch = useDispatch();
+  const navigate = useNavigate();
   const profile = useSelector(selectProfile);
   const interests = useSelector(selectInterests);
+  const currentUser = useSelector(selectCurrentUser);
   const [form, setForm] = useState(null);
   const [message, setMessage] = useState(null);
   const [errors, setErrors] = useState(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const normalizeDate = (value) => {
     if (!value) {
@@ -18,21 +30,27 @@ const ProfilePage = () => {
     return typeof value === 'string' && value.length > 10 ? value.slice(0, 10) : value;
   };
 
+  const buildFormState = (data) => ({
+    ...data,
+    dob: normalizeDate(data?.dob),
+    interests: data?.interests ?? [],
+    new_photos: [],
+    remove_photo_ids: []
+  });
+
   useEffect(() => {
     dispatch(loadProfile());
   }, [dispatch]);
 
   useEffect(() => {
     if (profile) {
-      setForm({
-        ...profile,
-        dob: normalizeDate(profile.dob),
-        interests: profile.interests ?? [],
-        new_photos: [],
-        remove_photo_ids: []
-      });
+      setForm(buildFormState(profile));
     }
   }, [profile]);
+
+  const interestLookup = useMemo(() => {
+    return new Map(interests.map((interest) => [interest.id, interest.name]));
+  }, [interests]);
 
   if (!form) {
     return (
@@ -41,6 +59,27 @@ const ProfilePage = () => {
       </div>
     );
   }
+
+  const startEditing = () => {
+    if (!profile) {
+      return;
+    }
+    setErrors(null);
+    setMessage(null);
+    setForm(buildFormState(profile));
+    setIsEditing(true);
+  };
+
+  const handleCancelEdit = () => {
+    if (!profile) {
+      setIsEditing(false);
+      return;
+    }
+    setErrors(null);
+    setMessage(null);
+    setForm(buildFormState(profile));
+    setIsEditing(false);
+  };
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -122,26 +161,231 @@ const ProfilePage = () => {
     const result = await dispatch(saveProfile(payload));
     if (saveProfile.fulfilled.match(result)) {
       const updated = result.payload;
-      setForm({
-        ...updated,
-        dob: normalizeDate(updated.dob),
-        interests: updated.interests ?? [],
-        new_photos: [],
-        remove_photo_ids: []
-      });
+      setForm(buildFormState(updated));
       setMessage('Profile updated successfully');
       setErrors(null);
+      setIsEditing(false);
     } else {
       setMessage('Unable to save profile');
       setErrors(result.payload ?? result.error?.message ?? result.error);
     }
   };
 
+  const handleDeleteAccount = async () => {
+    const confirmation = window.confirm(
+      'Deleting your account will remove your profile, matches, and conversations. This cannot be undone. Are you sure you want to continue?'
+    );
+    if (!confirmation) {
+      return;
+    }
+    setIsDeleting(true);
+    setMessage(null);
+    setErrors(null);
+    const result = await dispatch(removeAccount());
+    if (removeAccount.fulfilled.match(result)) {
+      setMessage('Your account has been deleted.');
+      navigate('/login', { replace: true });
+    } else {
+      setErrors(result.payload ?? result.error?.message ?? result.error);
+    }
+    setIsDeleting(false);
+  };
+
+  const selectedInterests = (profile?.interests ?? [])
+    .map((interestId) => ({ id: interestId, name: interestLookup.get(interestId) }))
+    .filter((interest) => Boolean(interest.name));
+
+  const otherPhotos = profile?.photos?.slice(1) ?? [];
+
   return (
     <div className="container" style={{ display: 'grid', gap: '1.5rem' }}>
-      <div className="card">
-        <h2>Your Profile</h2>
-        <form onSubmit={handleSubmit} className="form">
+      <div className="card" style={{ display: 'grid', gap: '1.5rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem' }}>
+          <div>
+            <h2 style={{ marginBottom: '0.25rem' }}>Your Profile</h2>
+            <p style={{ margin: 0, color: 'var(--color-muted, #6b7280)' }}>
+              Review your information and keep it up to date to get the best matches.
+            </p>
+          </div>
+          <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+            <button type="button" className="button-secondary" onClick={isEditing ? handleCancelEdit : startEditing}>
+              {isEditing ? 'Close editor' : 'Edit profile'}
+            </button>
+            <button
+              type="button"
+              className="button-secondary"
+              onClick={handleDeleteAccount}
+              disabled={isDeleting}
+              style={{
+                color: 'var(--color-danger, #b91c1c)',
+                borderColor: 'var(--color-danger, #b91c1c)',
+                backgroundColor: 'transparent'
+              }}
+            >
+              {isDeleting ? 'Deleting…' : 'Delete account'}
+            </button>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1.5rem' }}>
+          <div style={{ flex: '0 0 160px', display: 'grid', gap: '0.75rem' }}>
+            {profile?.photos?.length ? (
+              <img
+                src={profile.photos[0].image}
+                alt="Primary profile"
+                style={{ width: '160px', height: '160px', objectFit: 'cover', borderRadius: '12px' }}
+              />
+            ) : (
+              <div
+                style={{
+                  width: '160px',
+                  height: '160px',
+                  borderRadius: '12px',
+                  display: 'grid',
+                  placeItems: 'center',
+                  background: 'var(--color-muted-bg, #f3f4f6)',
+                  color: 'var(--color-muted, #6b7280)',
+                  textAlign: 'center',
+                  padding: '0.75rem'
+                }}
+              >
+                No photos yet
+              </div>
+            )}
+            {otherPhotos.length ? (
+              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                {otherPhotos.map((photo) => (
+                  <img
+                    key={photo.id}
+                    src={photo.image}
+                    alt="Profile"
+                    style={{ width: '72px', height: '72px', objectFit: 'cover', borderRadius: '8px' }}
+                  />
+                ))}
+              </div>
+            ) : null}
+          </div>
+
+          <div style={{ flex: '1 1 280px', display: 'grid', gap: '1rem' }}>
+            <div style={{ display: 'grid', gap: '0.5rem' }}>
+              <h3 style={{ margin: 0 }}>{profile?.name || 'Add your full name'}</h3>
+              <p style={{ margin: 0, color: 'var(--color-muted, #6b7280)' }}>
+                {profile?.bio || 'Tell other members a little about yourself.'}
+              </p>
+            </div>
+
+            <div
+              style={{
+                display: 'grid',
+                gap: '0.75rem',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))'
+              }}
+            >
+              <div>
+                <strong>Full name</strong>
+                <p>{profile?.name || 'Not provided'}</p>
+              </div>
+              <div>
+                <strong>Email</strong>
+                <p>{currentUser?.email || 'Not provided'}</p>
+              </div>
+              <div>
+                <strong>Date of birth</strong>
+                <p>{profile?.dob ? normalizeDate(profile.dob) : 'Not provided'}</p>
+              </div>
+              <div>
+                <strong>Age</strong>
+                <p>{profile?.age ?? 'Not available'}</p>
+              </div>
+              <div>
+                <strong>Gender</strong>
+                <p>{profile?.gender || 'Not provided'}</p>
+              </div>
+              <div>
+                <strong>City</strong>
+                <p>{profile?.city || 'Not provided'}</p>
+              </div>
+              <div>
+                <strong>Religion</strong>
+                <p>{profile?.religion || 'Not provided'}</p>
+              </div>
+              <div>
+                <strong>Education</strong>
+                <p>{profile?.education || 'Not provided'}</p>
+              </div>
+              <div>
+                <strong>Profession</strong>
+                <p>{profile?.profession || 'Not provided'}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style={{ display: 'grid', gap: '1rem' }}>
+          <div>
+            <h3 style={{ marginBottom: '0.5rem' }}>Interests</h3>
+            {selectedInterests.length ? (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                {selectedInterests.map((interest) => (
+                  <span
+                    key={interest.id}
+                    style={{
+                      padding: '0.25rem 0.75rem',
+                      borderRadius: '9999px',
+                      background: 'var(--color-muted-bg, #f3f4f6)',
+                      color: 'var(--color-muted-strong, #374151)',
+                      fontSize: '0.875rem'
+                    }}
+                  >
+                    {interest.name}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <p style={{ margin: 0, color: 'var(--color-muted, #6b7280)' }}>
+                You have not selected any interests yet.
+              </p>
+            )}
+          </div>
+
+          <div>
+            <h3 style={{ marginBottom: '0.5rem' }}>Match preferences</h3>
+            <div
+              style={{
+                display: 'grid',
+                gap: '0.75rem',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))'
+              }}
+            >
+              <div>
+                <strong>Preferred gender</strong>
+                <p>{profile?.preferred_gender || 'Any'}</p>
+              </div>
+              <div>
+                <strong>Preferred city</strong>
+                <p>{profile?.preferred_city || 'Any'}</p>
+              </div>
+              <div>
+                <strong>Preferred religion</strong>
+                <p>{profile?.preferred_religion || 'Any'}</p>
+              </div>
+              <div>
+                <strong>Preferred age</strong>
+                <p>
+                  {profile?.preferred_age_min || profile?.preferred_age_max
+                    ? `${profile?.preferred_age_min ?? '18'} - ${profile?.preferred_age_max ?? '100'}`
+                    : 'Any'}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {isEditing ? (
+        <div className="card">
+          <h2>Update profile</h2>
+          <form onSubmit={handleSubmit} className="form">
           <label htmlFor="name">Full name</label>
           <input id="name" name="name" value={form.name ?? ''} onChange={handleChange} />
 
@@ -320,27 +564,40 @@ const ProfilePage = () => {
             </div>
           </div>
 
-          <button type="submit" className="button-primary" style={{ width: '200px' }}>
-            Save changes
-          </button>
+          <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
+            <button type="submit" className="button-primary" style={{ width: '200px' }}>
+              Save changes
+            </button>
+            <button type="button" className="button-secondary" onClick={handleCancelEdit}>
+              Cancel
+            </button>
+          </div>
         </form>
-        {message && <p style={{ marginTop: '1rem' }}>{message}</p>}
-        {errors && (
-          <div style={{ marginTop: '1rem', color: 'var(--color-danger, #b91c1c)' }}>
-            {typeof errors === 'string' ? (
-              <p>{errors}</p>
+      </div>
+      ) : null}
+
+      {(message || errors) && (
+        <div className="card" style={{ color: errors ? 'var(--color-danger, #b91c1c)' : 'inherit' }}>
+          {message && <p style={{ margin: 0 }}>{message}</p>}
+          {errors ? (
+            typeof errors === 'string' ? (
+              <p style={{ margin: errors ? '0.25rem 0 0' : 0 }}>{errors}</p>
             ) : Array.isArray(errors) ? (
-              errors.map((error, index) => <p key={index}>{error}</p>)
+              errors.map((error, index) => (
+                <p key={index} style={{ margin: '0.25rem 0 0' }}>
+                  {error}
+                </p>
+              ))
             ) : (
               Object.entries(errors).map(([field, value]) => (
-                <p key={field}>
+                <p key={field} style={{ margin: '0.25rem 0 0' }}>
                   <strong>{field}:</strong> {Array.isArray(value) ? value.join(', ') : value}
                 </p>
               ))
-            )}
-          </div>
-        )}
-      </div>
+            )
+          ) : null}
+        </div>
+      )}
     </div>
   );
 };

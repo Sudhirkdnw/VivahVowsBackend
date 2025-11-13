@@ -104,3 +104,10 @@ class ProfileAPITests(TestCase):
         assert new_photo is not None
         self.assertNotEqual(new_photo.id, existing_photo.id)
         self.assertEqual(response.data["photos"][0]["id"], new_photo.id)
+
+    def test_delete_profile_removes_user_account(self) -> None:
+        response = self.client.delete(reverse("profile-me"))
+
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        User = get_user_model()
+        self.assertFalse(User.objects.filter(pk=self.user.pk).exists())

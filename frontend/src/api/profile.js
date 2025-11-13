@@ -20,6 +20,13 @@ export const updateProfile = async (token, data) => {
   return response.data;
 };
 
+export const deleteAccount = async (token) => {
+  const response = await client.delete('/profiles/me/', {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  return response.data;
+};
+
 export const fetchInterests = async (token) => {
   const response = await client.get('/interests/', {
     headers: { Authorization: `Bearer ${token}` }
