@@ -8,7 +8,7 @@ export const fetchProfile = async (token) => {
 };
 
 export const updateProfile = async (token, data) => {
-  const response = await client.put('/profiles/me/', data, {
+  const response = await client.patch('/profiles/me/', data, {
     headers: { Authorization: `Bearer ${token}` }
   });
   return response.data;

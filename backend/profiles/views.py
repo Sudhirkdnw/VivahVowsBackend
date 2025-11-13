@@ -6,6 +6,7 @@ from rest_framework import permissions, viewsets
 from rest_framework.permissions import SAFE_METHODS
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 
 from .models import Interest, Profile
 from .serializers import InterestSerializer, ProfileSerializer
@@ -26,6 +27,7 @@ class ProfileViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
     queryset = Profile.objects.select_related("user").prefetch_related("interests")
     http_method_names = ["get", "put", "patch", "head", "options"]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
 
     def get_queryset(self):
         queryset = Profile.objects.select_related("user").prefetch_related("interests")
