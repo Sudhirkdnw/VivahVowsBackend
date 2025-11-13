@@ -1,7 +1,7 @@
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
 
-import { fetchProfile, fetchInterests, updateProfile } from '../api/profile.js';
-import { selectAuthTokens } from './authSlice.js';
+import { deleteAccount, fetchProfile, fetchInterests, updateProfile } from '../api/profile.js';
+import { logout, selectAuthTokens } from './authSlice.js';
 
 export const loadProfile = createAsyncThunk(
   'profile/load',
@@ -38,6 +38,23 @@ export const saveProfile = createAsyncThunk(
   }
 );
 
+export const removeAccount = createAsyncThunk(
+  'profile/removeAccount',
+  async (_, { getState, dispatch, rejectWithValue }) => {
+    try {
+      const { access } = selectAuthTokens(getState());
+      if (!access) {
+        return rejectWithValue({ detail: 'Not authenticated' });
+      }
+      await deleteAccount(access);
+      dispatch(logout());
+      return true;
+    } catch (error) {
+      return rejectWithValue(error.response?.data ?? { detail: 'Unable to delete account' });
+    }
+  }
+);
+
 const profileSlice = createSlice({
   name: 'profile',
   initialState: {
@@ -63,6 +80,23 @@ const profileSlice = createSlice({
       })
       .addCase(saveProfile.fulfilled, (state, action) => {
         state.profile = action.payload;
+        state.error = null;
+      })
+      .addCase(saveProfile.rejected, (state, action) => {
+        state.error = action.payload ?? action.error;
+      })
+      .addCase(removeAccount.pending, (state) => {
+        state.status = 'deleting';
+      })
+      .addCase(removeAccount.fulfilled, (state) => {
+        state.status = 'deleted';
+        state.profile = null;
+        state.interests = [];
+        state.error = null;
+      })
+      .addCase(removeAccount.rejected, (state, action) => {
+        state.status = 'failed';
+        state.error = action.payload ?? action.error;
       });
   }
 });
