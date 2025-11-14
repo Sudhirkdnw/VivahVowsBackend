@@ -22,6 +22,13 @@ export const fetchCurrentUser = async (token) => {
   return response.data;
 };
 
+export const updateCurrentUser = async (token, payload) => {
+  const response = await client.patch('/auth/me/', payload, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  return response.data;
+};
+
 export const verifyEmail = async (token) => {
   const response = await client.post('/auth/verify-email/', { token });
   return response.data;
