@@ -203,6 +203,7 @@ const ProfilePage = () => {
       setMessage('Unable to save profile');
       setErrors(result.payload ?? result.error?.message ?? result.error);
     }
+    setIsDeleting(false);
   };
 
   const handleDeleteAccount = async () => {
