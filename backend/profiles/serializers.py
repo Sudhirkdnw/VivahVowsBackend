@@ -3,7 +3,7 @@ from __future__ import annotations
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
 
-from .models import Interest, Profile
+from .models import Interest, Profile, ProfilePhoto
 
 User = get_user_model()
 
@@ -14,12 +14,39 @@ class InterestSerializer(serializers.ModelSerializer):
         fields = ["id", "name"]
 
 
+class ProfilePhotoSerializer(serializers.ModelSerializer):
+    image = serializers.SerializerMethodField()
+    image_path = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ProfilePhoto
+        fields = ["id", "image", "image_path", "uploaded_at"]
+        read_only_fields = ["id", "image", "image_path", "uploaded_at"]
+
+    def get_image(self, obj: ProfilePhoto) -> str:
+        request = self.context.get("request") if hasattr(self, "context") else None
+        return obj.get_image_url(request=request)
+
+    def get_image_path(self, obj: ProfilePhoto) -> str:
+        if not obj.image:
+            return ""
+        return obj.image.url
+
+
 class ProfileSerializer(serializers.ModelSerializer):
     user = serializers.PrimaryKeyRelatedField(read_only=True)
     interests = serializers.PrimaryKeyRelatedField(
         many=True, queryset=Interest.objects.all(), required=False
     )
     age = serializers.SerializerMethodField()
+    photos = ProfilePhotoSerializer(many=True, read_only=True)
+    new_photos = serializers.ListField(
+        child=serializers.ImageField(), write_only=True, required=False
+    )
+    remove_photo_ids = serializers.ListField(
+        child=serializers.IntegerField(), write_only=True, required=False
+    )
+    clear_interests = serializers.BooleanField(write_only=True, required=False)
 
     class Meta:
         model = Profile
@@ -45,6 +72,9 @@ class ProfileSerializer(serializers.ModelSerializer):
             "age",
             "created_at",
             "updated_at",
+            "new_photos",
+            "remove_photo_ids",
+            "clear_interests",
         ]
         read_only_fields = ["id", "is_email_verified", "age", "created_at", "updated_at"]
 
@@ -53,9 +83,19 @@ class ProfileSerializer(serializers.ModelSerializer):
 
     def update(self, instance: Profile, validated_data: dict) -> Profile:
         interests = validated_data.pop("interests", None)
+        new_photos = validated_data.pop("new_photos", [])
+        remove_photo_ids = validated_data.pop("remove_photo_ids", [])
+        clear_interests = validated_data.pop("clear_interests", False)
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         instance.save()
-        if interests is not None:
+        if clear_interests:
+            instance.interests.clear()
+        elif interests is not None:
             instance.interests.set(interests)
+        if remove_photo_ids:
+            instance.photos.filter(id__in=remove_photo_ids).delete()
+        for image in new_photos:
+            ProfilePhoto.objects.create(profile=instance, image=image)
+        instance.refresh_from_db()
         return instance
