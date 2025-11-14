@@ -13,6 +13,8 @@ urlpatterns = [
     path("register/", RegisterView.as_view(), name="register"),
     path("verify-email/", EmailVerificationView.as_view(), name="verify-email"),
     path("password-reset/", PasswordResetRequestView.as_view(), name="password-reset"),
+    path("reset-password", TemplateView.as_view(template_name="index.html")),
+
     path(
         "password-reset/confirm/",
         PasswordResetConfirmView.as_view(),
