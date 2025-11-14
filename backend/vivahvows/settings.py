@@ -14,7 +14,7 @@ APPS_DIR = Path(__file__).resolve().parent
 
 # Environment configuration
 env = environ.Env(
-    DEBUG=(bool, False),
+    DEBUG=(bool, True),
     SECRET_KEY=(str, "2n=u%lp5beui7ti%r(!u556j$@4_jvn_-*)9(o-mn8-t-=m251"),
     ALLOWED_HOSTS=(list, ["*"]),
 )
@@ -124,7 +124,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 # Internationalization
 LANGUAGE_CODE = "en-us"
-TIME_ZONE = "UTC"
+TIME_ZONE = "Asia/Kolkata"
 USE_I18N = True
 USE_TZ = True
 
@@ -176,12 +176,10 @@ CLOUDINARY_STORAGE = {
     "API_KEY": env("CLOUDINARY_API_KEY", default=""),
     "API_SECRET": env("CLOUDINARY_API_SECRET", default=""),
 }
-DEFAULT_FILE_STORAGE = "django.core.files.storage.FileSystemStorage"
-
-# if CLOUDINARY_STORAGE["CLOUD_NAME"]:
-#     DEFAULT_FILE_STORAGE = "cloudinary_storage.storage.MediaCloudinaryStorage"
-# else:  # pragma: no cover - local development fallback
-#     DEFAULT_FILE_STORAGE = "django.core.files.storage.FileSystemStorage"
+if CLOUDINARY_STORAGE["CLOUD_NAME"]:
+    DEFAULT_FILE_STORAGE = "cloudinary_storage.storage.MediaCloudinaryStorage"
+else:  # pragma: no cover - local development fallback
+    DEFAULT_FILE_STORAGE = "django.core.files.storage.FileSystemStorage"
 
 # Email configuration - console backend for development
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
