@@ -64,6 +64,23 @@ export const removeAccount = createAsyncThunk(
   }
 );
 
+export const removeAccount = createAsyncThunk(
+  'profile/removeAccount',
+  async (_, { getState, dispatch, rejectWithValue }) => {
+    try {
+      const { access } = selectAuthTokens(getState());
+      if (!access) {
+        return rejectWithValue({ detail: 'Not authenticated' });
+      }
+      await deleteAccount(access);
+      dispatch(logout());
+      return true;
+    } catch (error) {
+      return rejectWithValue(error.response?.data ?? { detail: 'Unable to delete account' });
+    }
+  }
+);
+
 const profileSlice = createSlice({
   name: 'profile',
   initialState: {
