@@ -4,6 +4,7 @@ from django.conf import settings
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.utils.html import format_html  # for admin image preview
+from urllib.parse import urljoin
 
 User = settings.AUTH_USER_MODEL
 
@@ -81,15 +82,42 @@ class ProfilePhoto(models.Model):
     image = models.ImageField(upload_to="profile_photos/")
     uploaded_at = models.DateTimeField(auto_now_add=True)
 
+    class Meta:
+        ordering = ["-uploaded_at", "-id"]
+
     def __str__(self):
         return f"{self.profile.name or self.profile.user.username} - Photo"
 
+    def get_image_url(self, request=None) -> str:
+        """Return an absolute URL for this photo, handling CDN/base overrides."""
+        if not self.image:
+            return ""
+
+        url = self.image.url
+        if url.startswith("http://") or url.startswith("https://"):
+            return url
+
+        media_base = getattr(settings, "MEDIA_CDN_URL", "") or ""
+        if media_base:
+            return urljoin(media_base.rstrip("/") + "/", url.lstrip("/"))
+
+        if request is not None:
+            return request.build_absolute_uri(url)
+
+        site_base = getattr(settings, "SITE_BASE_URL", "") or ""
+        if site_base:
+            return urljoin(site_base.rstrip("/") + "/", url.lstrip("/"))
+
+        return url
+
     def image_tag(self):
         """Show thumbnail preview in Django admin"""
-        if self.image:
+        image_url = self.get_image_url()
+        if image_url:
             return format_html(
                 '<img src="{}" width="80" height="80" style="border-radius:6px; object-fit:cover;"/>',
-                self.image.url,
+                image_url,
             )
         return ""
+
     image_tag.short_description = "Preview"

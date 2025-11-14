@@ -143,6 +143,9 @@ if FRONTEND_DIST_DIR.exists():
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
+SITE_BASE_URL = env("SITE_BASE_URL", default="")
+MEDIA_CDN_URL = env("MEDIA_CDN_URL", default="")
+
 
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
