@@ -20,6 +20,23 @@ class UserSerializer(serializers.ModelSerializer):
         fields = ["id", "username", "email", "first_name", "last_name"]
         read_only_fields = ["id", "email"]
 
+    def update(self, instance, validated_data):
+        username = validated_data.get("username")
+        if username and User.objects.exclude(pk=instance.pk).filter(
+            username__iexact=username
+        ):
+            raise serializers.ValidationError(
+                {"username": _("A user with that username already exists.")}
+            )
+
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+
+        if validated_data:
+            instance.save(update_fields=list(validated_data.keys()))
+
+        return instance
+
 
 class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)

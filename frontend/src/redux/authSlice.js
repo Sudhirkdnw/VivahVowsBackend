@@ -7,6 +7,7 @@ import {
   refreshToken,
   registerUser,
   requestPasswordReset,
+  updateCurrentUser,
   verifyEmail
 } from '../api/auth.js';
 
@@ -25,7 +26,9 @@ const initialState = {
   refresh: persisted?.refresh ?? null,
   user: persisted?.user ?? null,
   status: 'idle',
-  error: null
+  error: null,
+  updateStatus: 'idle',
+  updateError: null
 };
 
 const persistState = (state) => {
@@ -104,6 +107,22 @@ export const confirmPasswordResetToken = createAsyncThunk(
   }
 );
 
+export const updateAccount = createAsyncThunk(
+  'auth/updateAccount',
+  async (payload, { getState, rejectWithValue }) => {
+    const access = getState().auth.access;
+    if (!access) {
+      return rejectWithValue({ detail: 'Not authenticated' });
+    }
+
+    try {
+      return await updateCurrentUser(access, payload);
+    } catch (error) {
+      return rejectWithValue(error.response?.data ?? { detail: 'Unable to update account' });
+    }
+  }
+);
+
 const authSlice = createSlice({
   name: 'auth',
   initialState,
@@ -156,6 +175,19 @@ const authSlice = createSlice({
         state.refresh = null;
         state.user = null;
         localStorage.removeItem(STORAGE_KEY);
+      })
+      .addCase(updateAccount.pending, (state) => {
+        state.updateStatus = 'loading';
+        state.updateError = null;
+      })
+      .addCase(updateAccount.fulfilled, (state, action) => {
+        state.updateStatus = 'succeeded';
+        state.user = { ...(state.user ?? {}), ...action.payload };
+        persistState(state);
+      })
+      .addCase(updateAccount.rejected, (state, action) => {
+        state.updateStatus = 'failed';
+        state.updateError = action.payload ?? action.error;
       });
   }
 });
@@ -165,5 +197,7 @@ export const { logout } = authSlice.actions;
 export const selectIsAuthenticated = (state) => Boolean(state.auth.access);
 export const selectCurrentUser = (state) => state.auth.user;
 export const selectAuthTokens = (state) => ({ access: state.auth.access, refresh: state.auth.refresh });
+export const selectAccountUpdateStatus = (state) => state.auth.updateStatus;
+export const selectAccountUpdateError = (state) => state.auth.updateError;
 
 export default authSlice.reducer;
