@@ -1,25 +1,40 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
+import { Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
-import { Route, Routes, Navigate } from 'react-router-dom';
 
-import Navbar from './components/Navbar.jsx';
-import NotificationToaster from './components/NotificationToaster.jsx';
-import ProtectedRoute from './components/ProtectedRoute.jsx';
-import ChatPage from './pages/ChatPage.jsx';
+import AppShell from './components/layout/AppShell.jsx';
+import ToastStack from './components/common/ToastStack.jsx';
 import DashboardPage from './pages/DashboardPage.jsx';
-import ForgotPasswordPage from './pages/ForgotPasswordPage.jsx';
-import LoginPage from './pages/LoginPage.jsx';
-import MatchSuggestionsPage from './pages/MatchSuggestionsPage.jsx';
+import ForgotPasswordPage from './pages/auth/ForgotPasswordPage.jsx';
+import LoginPage from './pages/auth/LoginPage.jsx';
+import MatchesPage from './pages/MatchesPage.jsx';
+import MessagesPage from './pages/MessagesPage.jsx';
 import NotificationsPage from './pages/NotificationsPage.jsx';
 import ProfilePage from './pages/ProfilePage.jsx';
-import RegisterPage from './pages/RegisterPage.jsx';
-import { selectAuthTokens } from './redux/authSlice.js';
+import RegisterPage from './pages/auth/RegisterPage.jsx';
+import SettingsPage from './pages/SettingsPage.jsx';
+import { selectAuthTokens, selectIsAuthenticated } from './redux/authSlice.js';
 import { pushNotification } from './redux/notificationSlice.js';
+
+const AuthenticatedLayout = () => {
+  const isAuthenticated = useSelector(selectIsAuthenticated);
+  const location = useLocation();
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  return (
+    <AppShell>
+      <Outlet />
+    </AppShell>
+  );
+};
 
 const App = () => {
   const dispatch = useDispatch();
   const tokens = useSelector(selectAuthTokens);
-  const [toast, setToast] = useState([]);
+  const [toastStack, setToastStack] = useState([]);
 
   useEffect(() => {
     if (!tokens.access) {
@@ -30,82 +45,52 @@ const App = () => {
       `${protocol}://${window.location.host}/ws/notifications/?token=${tokens.access}`
     );
     socket.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      const notification = {
-        id: Date.now(),
-        event: data.event,
-        payload: data.payload,
-        is_read: false
-      };
-      dispatch(pushNotification(notification));
-      setToast((prev) => [notification, ...prev].slice(0, 3));
-      setTimeout(() => {
-        setToast((current) => current.filter((item) => item.id !== notification.id));
-      }, 5000);
+      try {
+        const data = JSON.parse(event.data);
+        const notification = {
+          id: Date.now(),
+          event: data.event,
+          payload: data.payload,
+          detail: data.payload?.message ?? 'Activity update',
+          is_read: false
+        };
+        dispatch(pushNotification(notification));
+        setToastStack((current) => [notification, ...current].slice(0, 4));
+        setTimeout(() => {
+          setToastStack((current) => current.filter((item) => item.id !== notification.id));
+        }, 5000);
+      } catch (error) {
+        console.error('Unable to parse notification payload', error);
+      }
     };
-    return () => {
+    socket.onerror = () => {
       socket.close();
+      setToastStack((current) => [
+        { id: Date.now(), event: 'connection_error', detail: 'Notification channel disconnected.' },
+        ...current
+      ].slice(0, 4));
     };
-  }, [tokens.access, dispatch]);
+    return () => socket.close();
+  }, [dispatch, tokens.access]);
 
   return (
     <>
-      <Navbar />
       <Routes>
-        <Route
-          path="/"
-          element={
-            <ProtectedRoute>
-              <DashboardPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/dashboard"
-          element={
-            <ProtectedRoute>
-              <DashboardPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/profile"
-          element={
-            <ProtectedRoute>
-              <ProfilePage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/matches"
-          element={
-            <ProtectedRoute>
-              <MatchSuggestionsPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/chat"
-          element={
-            <ProtectedRoute>
-              <ChatPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/notifications"
-          element={
-            <ProtectedRoute>
-              <NotificationsPage />
-            </ProtectedRoute>
-          }
-        />
+        <Route element={<AuthenticatedLayout />}>
+          <Route index element={<Navigate to="/dashboard" replace />} />
+          <Route path="/dashboard" element={<DashboardPage />} />
+          <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/matches" element={<MatchesPage />} />
+          <Route path="/messages" element={<MessagesPage />} />
+          <Route path="/notifications" element={<NotificationsPage />} />
+          <Route path="/settings" element={<SettingsPage />} />
+        </Route>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
-      <NotificationToaster notifications={toast} />
+      <ToastStack notifications={toastStack} />
     </>
   );
 };

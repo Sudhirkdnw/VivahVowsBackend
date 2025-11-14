@@ -1,146 +1,112 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 
-import { loadProfile, saveProfile, selectInterests, selectProfile } from '../redux/profileSlice.js';
+import ProfileForm from '../components/profile/ProfileForm.jsx';
+import ProfileOverview from '../components/profile/ProfileOverview.jsx';
+import { loadProfile, removeAccount, saveProfile, selectInterests, selectProfile } from '../redux/profileSlice.js';
 
 const ProfilePage = () => {
   const dispatch = useDispatch();
   const profile = useSelector(selectProfile);
   const interests = useSelector(selectInterests);
-  const [form, setForm] = useState(null);
-  const [message, setMessage] = useState(null);
+  const status = useSelector((state) => state.profile.status);
+  const error = useSelector((state) => state.profile.error);
+  const [editing, setEditing] = useState(false);
+  const [localError, setLocalError] = useState(null);
+  const [dangerConfirm, setDangerConfirm] = useState('');
 
   useEffect(() => {
     dispatch(loadProfile());
   }, [dispatch]);
 
-  useEffect(() => {
-    if (profile) {
-      setForm(profile);
+  const handleSubmit = async (formData) => {
+    setLocalError(null);
+    try {
+      await dispatch(saveProfile(formData)).unwrap();
+      await dispatch(loadProfile());
+      setEditing(false);
+    } catch (submitError) {
+      setLocalError(submitError);
     }
-  }, [profile]);
-
-  if (!form) {
-    return (
-      <div className="container">
-        <div className="card">Loading profile...</div>
-      </div>
-    );
-  }
-
-  const handleChange = (event) => {
-    setForm((prev) => ({ ...prev, [event.target.name]: event.target.value }));
   };
 
-  const handleInterestToggle = (interestId) => {
-    setForm((prev) => {
-      const existing = new Set(prev.interests || []);
-      if (existing.has(interestId)) {
-        existing.delete(interestId);
-      } else {
-        existing.add(interestId);
-      }
-      return { ...prev, interests: Array.from(existing) };
-    });
-  };
-
-  const handleSubmit = async (event) => {
+  const handleDeleteAccount = async (event) => {
     event.preventDefault();
-    const result = await dispatch(saveProfile(form));
-    if (saveProfile.fulfilled.match(result)) {
-      setMessage('Profile updated successfully');
-    } else {
-      setMessage('Unable to save profile');
+    if (dangerConfirm.trim().toLowerCase() !== 'delete') {
+      setLocalError({ detail: 'Type DELETE to confirm account removal.' });
+      return;
     }
+    await dispatch(removeAccount());
   };
+
+  const isLoading = useMemo(() => status === 'loading', [status]);
 
   return (
-    <div className="container" style={{ display: 'grid', gap: '1.5rem' }}>
-      <div className="card">
-        <h2>Your Profile</h2>
-        <form onSubmit={handleSubmit} className="form">
-          <label htmlFor="name">Full name</label>
-          <input id="name" name="name" value={form.name ?? ''} onChange={handleChange} />
-          <label htmlFor="bio">Bio</label>
-          <textarea id="bio" name="bio" rows={4} value={form.bio ?? ''} onChange={handleChange} />
-          <label htmlFor="city">City</label>
-          <input id="city" name="city" value={form.city ?? ''} onChange={handleChange} />
-          <label htmlFor="profession">Profession</label>
-          <input
-            id="profession"
-            name="profession"
-            value={form.profession ?? ''}
-            onChange={handleChange}
-          />
-          <label htmlFor="preferred_gender">Preferred gender</label>
-          <select
-            id="preferred_gender"
-            name="preferred_gender"
-            value={form.preferred_gender ?? ''}
-            onChange={handleChange}
-          >
-            <option value="">Any</option>
-            <option value="male">Male</option>
-            <option value="female">Female</option>
-            <option value="non_binary">Non-binary</option>
-          </select>
-          <label htmlFor="preferred_city">Preferred city</label>
-          <input
-            id="preferred_city"
-            name="preferred_city"
-            value={form.preferred_city ?? ''}
-            onChange={handleChange}
-          />
-          <div style={{ display: 'flex', gap: '1rem' }}>
-            <div>
-              <label htmlFor="preferred_age_min">Min age</label>
-              <input
-                id="preferred_age_min"
-                name="preferred_age_min"
-                type="number"
-                min="18"
-                max="100"
-                value={form.preferred_age_min ?? ''}
-                onChange={handleChange}
-              />
-            </div>
-            <div>
-              <label htmlFor="preferred_age_max">Max age</label>
-              <input
-                id="preferred_age_max"
-                name="preferred_age_max"
-                type="number"
-                min="18"
-                max="100"
-                value={form.preferred_age_max ?? ''}
-                onChange={handleChange}
-              />
-            </div>
+    <div className="surface-grid" style={{ gap: '32px' }}>
+      <div className="section-header">
+        <div>
+          <div className="badge">Profile command center</div>
+          <h1 style={{ margin: '12px 0 0' }}>Manage your story</h1>
+          <p style={{ margin: '6px 0 0', color: 'rgba(203,213,225,0.75)' }}>
+            Keep your VivahVows profile polished and ready for meaningful matches.
+          </p>
+        </div>
+        <div style={{ display: 'flex', gap: '12px' }}>
+          {!editing && (
+            <button type="button" className="button" onClick={() => setEditing(true)}>
+              Edit profile
+            </button>
+          )}
+        </div>
+      </div>
+      {(localError || error) && (
+        <div
+          className="surface-card"
+          style={{ border: '1px solid rgba(248,113,113,0.5)', background: 'rgba(248,113,113,0.08)' }}
+        >
+          <div style={{ fontWeight: 600 }}>Heads up!</div>
+          <pre style={{ whiteSpace: 'pre-wrap' }}>
+            {JSON.stringify(localError ?? error, null, 2)}
+          </pre>
+        </div>
+      )}
+      {!editing && <ProfileOverview profile={profile} interests={interests} />}
+      {editing && (
+        <ProfileForm
+          profile={profile}
+          interests={interests}
+          onSubmit={handleSubmit}
+          onCancel={() => setEditing(false)}
+          submitting={status === 'loading'}
+          error={error}
+        />
+      )}
+      <section className="surface-card" style={{ border: '1px solid rgba(248,113,113,0.35)', display: 'grid', gap: '16px' }}>
+        <header>
+          <div className="badge" style={{ background: 'rgba(248,113,113,0.25)', borderColor: 'rgba(248,113,113,0.45)' }}>
+            Danger zone
           </div>
-          <div>
-            <strong>Interests</strong>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.5rem' }}>
-              {interests.map((interest) => {
-                const selected = form.interests?.includes(interest.id);
-                return (
-                  <button
-                    key={interest.id}
-                    type="button"
-                    className={selected ? 'button-primary' : 'button-secondary'}
-                    onClick={() => handleInterestToggle(interest.id)}
-                  >
-                    {interest.name}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-          <button type="submit" className="button-primary" style={{ width: '200px' }}>
-            Save changes
+          <h2 style={{ margin: '12px 0 0' }}>Delete account</h2>
+          <p style={{ margin: '4px 0 0', color: 'rgba(248, 250, 252, 0.6)' }}>
+            This will permanently remove your profile, matches, and conversations.
+          </p>
+        </header>
+        <form onSubmit={handleDeleteAccount} style={{ display: 'grid', gap: '12px', maxWidth: '420px' }}>
+          <label className="field-group" htmlFor="confirm-delete">
+            <span>Type DELETE to continue</span>
+            <input
+              id="confirm-delete"
+              value={dangerConfirm}
+              onChange={(event) => setDangerConfirm(event.target.value)}
+              placeholder="DELETE"
+            />
+          </label>
+          <button type="submit" className="button button--danger" disabled={status === 'deleting'}>
+            {status === 'deleting' ? 'Deleting…' : 'Delete my account'}
           </button>
         </form>
-        {message && <p style={{ marginTop: '1rem' }}>{message}</p>}
-      </div>
+      </section>
+      {isLoading && !profile && <div className="empty-state">Fetching your profile…</div>}
     </div>
   );
 };

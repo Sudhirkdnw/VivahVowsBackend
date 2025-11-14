@@ -2,10 +2,11 @@ from __future__ import annotations
 
 from datetime import date
 
-from rest_framework import permissions, viewsets
+from rest_framework import permissions, status, viewsets
 from rest_framework.permissions import SAFE_METHODS
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 
 from .models import Interest, Profile
 from .serializers import InterestSerializer, ProfileSerializer
@@ -24,11 +25,16 @@ class InterestViewSet(viewsets.ModelViewSet):
 class ProfileViewSet(viewsets.ModelViewSet):
     serializer_class = ProfileSerializer
     permission_classes = [permissions.IsAuthenticated]
-    queryset = Profile.objects.select_related("user").prefetch_related("interests")
-    http_method_names = ["get", "put", "patch", "head", "options"]
+    queryset = (
+        Profile.objects.select_related("user").prefetch_related("interests", "photos")
+    )
+    http_method_names = ["get", "put", "patch", "delete", "head", "options"]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
 
     def get_queryset(self):
-        queryset = Profile.objects.select_related("user").prefetch_related("interests")
+        queryset = (
+            Profile.objects.select_related("user").prefetch_related("interests", "photos")
+        )
         if self.action == "list":
             queryset = queryset.exclude(user=self.request.user)
             params = self.request.query_params
@@ -70,7 +76,7 @@ class ProfileViewSet(viewsets.ModelViewSet):
             self.permission_denied(self.request, message="Cannot edit another user's profile")
         return obj
 
-    @action(detail=False, methods=["get", "put", "patch"], url_path="me")
+    @action(detail=False, methods=["get", "put", "patch", "delete"], url_path="me")
     def me(self, request):
         profile = request.user.profile
         if request.method.lower() in {"put", "patch"}:
@@ -78,8 +84,18 @@ class ProfileViewSet(viewsets.ModelViewSet):
                 profile, data=request.data, partial=request.method.lower() == "patch"
             )
             serializer.is_valid(raise_exception=True)
-            serializer.save()
-            return Response(serializer.data)
+            updated_profile = serializer.save()
+            refreshed = (
+                Profile.objects.select_related("user")
+                .prefetch_related("interests", "photos")
+                .get(pk=updated_profile.pk)
+            )
+            output = self.get_serializer(refreshed)
+            return Response(output.data)
+        if request.method.lower() == "delete":
+            user = request.user
+            user.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
         serializer = self.get_serializer(profile)
         return Response(serializer.data)
 
