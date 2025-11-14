@@ -182,8 +182,13 @@ else:  # pragma: no cover - local development fallback
     DEFAULT_FILE_STORAGE = "django.core.files.storage.FileSystemStorage"
 
 # Email configuration - console backend for development
-EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
-DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="no-reply@vivahvows.com")
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = 'Shreyankapatil.in@gmail.com'
+EMAIL_HOST_PASSWORD = 'npil zuse eemz vtde'
+DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
 # CORS
 CORS_ALLOW_ALL_ORIGINS = True
