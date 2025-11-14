@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
+import { useNavigate } from 'react-router-dom';
 
 import ProfileForm from '../components/profile/ProfileForm.jsx';
 import ProfileOverview from '../components/profile/ProfileOverview.jsx';
@@ -7,6 +8,7 @@ import { loadProfile, removeAccount, saveProfile, selectInterests, selectProfile
 
 const ProfilePage = () => {
   const dispatch = useDispatch();
+  const navigate = useNavigate();
   const profile = useSelector(selectProfile);
   const interests = useSelector(selectInterests);
   const status = useSelector((state) => state.profile.status);
