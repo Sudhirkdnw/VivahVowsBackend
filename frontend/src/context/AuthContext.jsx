@@ -19,11 +19,18 @@ export function AuthProvider({ children }) {
       ]);
       setUser(userResponse.data);
       setProfile(profileResponse.data);
+      setError(null);
     } catch (err) {
       console.error('Failed to fetch user data', err);
-      tokenStorage.clear();
-      setUser(null);
-      setProfile(null);
+      const status = err.response?.status;
+      if (status === 401) {
+        tokenStorage.clear();
+        setUser(null);
+        setProfile(null);
+        setError({ detail: 'Your session has expired. Please sign in again.' });
+      } else {
+        setError({ detail: 'Unable to reach the server. Please try again shortly.' });
+      }
     }
   }, []);
 
