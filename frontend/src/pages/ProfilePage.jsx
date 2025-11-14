@@ -184,18 +184,13 @@ const ProfilePage = () => {
 
     const result = await dispatch(saveProfile(payload));
     if (saveProfile.fulfilled.match(result)) {
-      let updated = result.payload;
-      if (!updated || typeof updated !== 'object' || Array.isArray(updated)) {
-        const refresh = await dispatch(loadProfile());
-        if (loadProfile.fulfilled.match(refresh)) {
-          updated = refresh.payload.profile;
-        } else {
-          setMessage('Profile updated, but we could not reload the latest details.');
-          setErrors(refresh.payload ?? refresh.error?.message ?? refresh.error);
-          return;
-        }
+      const updated =
+        result.payload && typeof result.payload === 'object' && !Array.isArray(result.payload)
+          ? result.payload
+          : profile;
+      if (updated) {
+        setForm(buildFormState(updated));
       }
-      setForm(buildFormState(updated));
       setMessage('Profile updated successfully');
       setErrors(null);
       setIsEditing(false);

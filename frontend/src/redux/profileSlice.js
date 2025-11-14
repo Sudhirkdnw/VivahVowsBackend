@@ -30,10 +30,36 @@ export const saveProfile = createAsyncThunk(
       if (!access) {
         return rejectWithValue({ detail: 'Not authenticated' });
       }
-      const profile = await updateProfile(access, payload);
-      return profile;
+      const response = await updateProfile(access, payload);
+      if (!response || typeof response !== 'object' || Array.isArray(response)) {
+        const fallback = await fetchProfile(access);
+        if (!fallback || typeof fallback !== 'object' || Array.isArray(fallback)) {
+          throw new Error('Invalid profile payload received from server');
+        }
+        return fallback;
+      }
+      return response;
     } catch (error) {
-      return rejectWithValue(error.response?.data ?? { detail: 'Unable to save profile' });
+      return rejectWithValue(
+        error.response?.data ?? { detail: error.message ?? 'Unable to save profile' }
+      );
+    }
+  }
+);
+
+export const removeAccount = createAsyncThunk(
+  'profile/removeAccount',
+  async (_, { getState, dispatch, rejectWithValue }) => {
+    try {
+      const { access } = selectAuthTokens(getState());
+      if (!access) {
+        return rejectWithValue({ detail: 'Not authenticated' });
+      }
+      await deleteAccount(access);
+      dispatch(logout());
+      return true;
+    } catch (error) {
+      return rejectWithValue(error.response?.data ?? { detail: 'Unable to delete account' });
     }
   }
 );
@@ -79,7 +105,9 @@ const profileSlice = createSlice({
         state.error = action.payload ?? action.error;
       })
       .addCase(saveProfile.fulfilled, (state, action) => {
-        state.profile = action.payload;
+        if (action.payload && typeof action.payload === 'object' && !Array.isArray(action.payload)) {
+          state.profile = action.payload;
+        }
         state.error = null;
       })
       .addCase(saveProfile.rejected, (state, action) => {

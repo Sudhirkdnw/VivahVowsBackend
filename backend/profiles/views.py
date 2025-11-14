@@ -84,8 +84,14 @@ class ProfileViewSet(viewsets.ModelViewSet):
                 profile, data=request.data, partial=request.method.lower() == "patch"
             )
             serializer.is_valid(raise_exception=True)
-            serializer.save()
-            return Response(serializer.data)
+            updated_profile = serializer.save()
+            refreshed = (
+                Profile.objects.select_related("user")
+                .prefetch_related("interests", "photos")
+                .get(pk=updated_profile.pk)
+            )
+            output = self.get_serializer(refreshed)
+            return Response(output.data)
         if request.method.lower() == "delete":
             user = request.user
             user.delete()
