@@ -58,6 +58,7 @@ class ProfileAPITests(TestCase):
         self.assertEqual(len(response.data["photos"]), 1)
         self.assertEqual(response.data["photos"][0]["id"], photo.id)
         self.assertTrue(response.data["photos"][0]["image"].startswith("http"))
+        self.assertTrue(response.data["photos"][0]["image_path"].startswith("/"))
 
     def test_patch_profile_updates_fields_and_interests(self) -> None:
         old_interest = Interest.objects.create(name="Dancing")
@@ -104,6 +105,20 @@ class ProfileAPITests(TestCase):
         assert new_photo is not None
         self.assertNotEqual(new_photo.id, existing_photo.id)
         self.assertEqual(response.data["photos"][0]["id"], new_photo.id)
+
+    def test_photo_urls_use_cdn_base_when_configured(self) -> None:
+        cdn_base = "https://media.example.com"
+        with override_settings(MEDIA_CDN_URL=cdn_base):
+            photo = ProfilePhoto.objects.create(
+                profile=self.profile,
+                image=_build_image_file("cdn.gif"),
+            )
+
+            response = self.client.get(reverse("profile-me"))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["photos"][0]["id"], photo.id)
+        self.assertTrue(response.data["photos"][0]["image"].startswith(cdn_base))
 
     def test_delete_profile_removes_user_account(self) -> None:
         response = self.client.delete(reverse("profile-me"))

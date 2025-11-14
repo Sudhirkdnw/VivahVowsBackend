@@ -9,14 +9,11 @@ export const fetchProfile = async (token) => {
 
 export const updateProfile = async (token, data) => {
   const isFormData = typeof FormData !== 'undefined' && data instanceof FormData;
-  const headers = { Authorization: `Bearer ${token}` };
-  if (isFormData) {
-    headers['Content-Type'] = 'multipart/form-data';
-  }
-  const response = await client.patch('/profiles/me/', data, {
-    headers,
+  const requestConfig = {
+    headers: { Authorization: `Bearer ${token}` },
     transformRequest: isFormData ? [(formData) => formData] : undefined
-  });
+  };
+  const response = await client.patch('/profiles/me/', data, requestConfig);
   return response.data;
 };
 

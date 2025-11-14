@@ -23,6 +23,27 @@ const ProfilePage = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  const mediaBaseUrl = (import.meta.env.VITE_MEDIA_BASE_URL ?? import.meta.env.VITE_API_ORIGIN ?? '').replace(/\/$/, '');
+
+  const resolvePhotoSrc = (photo) => {
+    if (!photo) {
+      return '';
+    }
+    const candidates = [photo.image, photo.image_path];
+    for (const candidate of candidates) {
+      if (!candidate) {
+        continue;
+      }
+      if (/^https?:\/\//i.test(candidate)) {
+        return candidate;
+      }
+      if (candidate.startsWith('/') && mediaBaseUrl) {
+        return `${mediaBaseUrl}${candidate}`;
+      }
+    }
+    return candidates.find(Boolean) ?? '';
+  };
+
   const normalizeDate = (value) => {
     if (!value) {
       return '';
@@ -30,10 +51,10 @@ const ProfilePage = () => {
     return typeof value === 'string' && value.length > 10 ? value.slice(0, 10) : value;
   };
 
-  const buildFormState = (data) => ({
+  const buildFormState = (data = {}) => ({
     ...data,
     dob: normalizeDate(data?.dob),
-    interests: data?.interests ?? [],
+    interests: Array.isArray(data?.interests) ? [...data.interests] : data?.interests ?? [],
     new_photos: [],
     remove_photo_ids: []
   });
@@ -110,6 +131,9 @@ const ProfilePage = () => {
       ...prev,
       new_photos: [...(prev.new_photos ?? []), ...files]
     }));
+    if (event.target) {
+      event.target.value = '';
+    }
   };
 
   const handleExistingPhotoToggle = (photoId) => {
@@ -160,7 +184,17 @@ const ProfilePage = () => {
 
     const result = await dispatch(saveProfile(payload));
     if (saveProfile.fulfilled.match(result)) {
-      const updated = result.payload;
+      let updated = result.payload;
+      if (!updated || typeof updated !== 'object' || Array.isArray(updated)) {
+        const refresh = await dispatch(loadProfile());
+        if (loadProfile.fulfilled.match(refresh)) {
+          updated = refresh.payload.profile;
+        } else {
+          setMessage('Profile updated, but we could not reload the latest details.');
+          setErrors(refresh.payload ?? refresh.error?.message ?? refresh.error);
+          return;
+        }
+      }
       setForm(buildFormState(updated));
       setMessage('Profile updated successfully');
       setErrors(null);
@@ -169,6 +203,7 @@ const ProfilePage = () => {
       setMessage('Unable to save profile');
       setErrors(result.payload ?? result.error?.message ?? result.error);
     }
+    setIsDeleting(false);
   };
 
   const handleDeleteAccount = async () => {
@@ -231,7 +266,7 @@ const ProfilePage = () => {
           <div style={{ flex: '0 0 160px', display: 'grid', gap: '0.75rem' }}>
             {profile?.photos?.length ? (
               <img
-                src={profile.photos[0].image}
+                src={resolvePhotoSrc(profile.photos[0])}
                 alt="Primary profile"
                 style={{ width: '160px', height: '160px', objectFit: 'cover', borderRadius: '12px' }}
               />
@@ -257,7 +292,7 @@ const ProfilePage = () => {
                 {otherPhotos.map((photo) => (
                   <img
                     key={photo.id}
-                    src={photo.image}
+                    src={resolvePhotoSrc(photo)}
                     alt="Profile"
                     style={{ width: '72px', height: '72px', objectFit: 'cover', borderRadius: '8px' }}
                   />
@@ -433,7 +468,7 @@ const ProfilePage = () => {
                         }}
                       >
                         <img
-                          src={photo.image}
+                          src={resolvePhotoSrc(photo)}
                           alt="Profile"
                           style={{
                             width: '100px',

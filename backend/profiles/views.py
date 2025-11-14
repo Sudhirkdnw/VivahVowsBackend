@@ -25,7 +25,9 @@ class InterestViewSet(viewsets.ModelViewSet):
 class ProfileViewSet(viewsets.ModelViewSet):
     serializer_class = ProfileSerializer
     permission_classes = [permissions.IsAuthenticated]
-    queryset = Profile.objects.select_related("user").prefetch_related("interests")
+    queryset = (
+        Profile.objects.select_related("user").prefetch_related("interests", "photos")
+    )
     http_method_names = ["get", "put", "patch", "delete", "head", "options"]
     parser_classes = [MultiPartParser, FormParser, JSONParser]
 
